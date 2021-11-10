@@ -1,5 +1,6 @@
 package com.lh.formlogin.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -9,6 +10,8 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+
+import java.io.PrintWriter;
 
 @Configuration
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
@@ -39,16 +42,45 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .loginProcessingUrl("/doLogin") //设置登录接口地址
                 .usernameParameter("name")      //登录时传递过来的参数名(用户名)
                 .passwordParameter("pwd")       //登录时传递过来的参数名(密码)
+                .successHandler((req, resp, authentication) ->{     //登录成功的回调
+                    resp.setContentType("application/json;charset=utf-8");
+                    PrintWriter writer = resp.getWriter();
+                    writer.write(new ObjectMapper().writeValueAsString(authentication.getPrincipal())); //放回当前登录的用户信息
+                    writer.flush();
+                    writer.close();
+                } )
+                .failureHandler(((req, resp, exception) -> {        //登录失败的回调
+                    resp.setContentType("application/json;charset=utf-8");
+                    PrintWriter writer = resp.getWriter();
+                    writer.write(new ObjectMapper().writeValueAsString(exception.getMessage())); //放回当前登录的用户信息
+                    writer.flush();
+                    writer.close();
+                }))
 //                .successForwardUrl("/success")//重定向到指定的页面
-                .defaultSuccessUrl("/success")  //重载进行跳转
+//                .defaultSuccessUrl("/success")  //重载进行跳转
                 .permitAll()
                 .and()
                 .logout()
                 .logoutUrl("/logout")           //注销接口路径
-                .logoutRequestMatcher(new AntPathRequestMatcher("/logout","POST"))  //不仅可以修改注销接口路径,还可以修改请求方式
+                .logoutSuccessHandler(((req, resp, authentication) -> {
+                    resp.setContentType("application/json;charset=utf-8");
+                    PrintWriter writer = resp.getWriter();
+                    writer.write(new ObjectMapper().writeValueAsString("注销登录成功")); //放回当前登录的用户信息
+                    writer.flush();
+                    writer.close();
+                }))
+                .permitAll()
                 .and()
                 .csrf()
-                .disable();
+                .disable()
+                .exceptionHandling()
+                .authenticationEntryPoint((req, resp, exception) -> {
+                    resp.setContentType("application/json;charset=utf-8");
+                    PrintWriter writer = resp.getWriter();
+                    writer.write(new ObjectMapper().writeValueAsString("尚未登录,请登录")); //放回当前登录的用户信息
+                    writer.flush();
+                    writer.close();
+                });
     }
 
     @Override
