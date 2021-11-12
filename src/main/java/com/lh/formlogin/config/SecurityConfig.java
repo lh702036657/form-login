@@ -3,12 +3,17 @@ package com.lh.formlogin.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import java.io.PrintWriter;
@@ -29,16 +34,43 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         auth.inMemoryAuthentication()
                 .withUser("java")
                 .password("123")
-                .roles("admin");
+                .roles("admin")
+                .and()
+                .withUser("lh")
+                .password("123")
+                .roles("user");
     }
+
+    /**
+     * 配置角色继承
+     */
+    @Bean
+    RoleHierarchy roleHierarchy() {
+        RoleHierarchyImpl hierarchy = new RoleHierarchyImpl();
+        hierarchy.setHierarchy("ROLE_admin > ROLE_user");
+        return hierarchy;
+    }
+
+/*    @Override
+    @Bean
+*//* 也可以使用 JdbcUserDetailsManager
+    和configure配置同理，配置用户名称以及密码和角色 Spring Security 支持多种数据源,如内存,数据库,LDAP,这些不同来源的数据都被共同封装为一个
+    UserDetailService接口,实现了该接口的对象都可以作为认证数据源。*//*
+    protected UserDetailsService userDetailsService() {
+        InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
+        manager.createUser(User.withUsername("lh").password("123").roles("admin").build());
+        return manager;
+    }*/
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
-                .anyRequest().authenticated()
+                .antMatchers("/admin/**").hasRole("admin")  //访问/admin的路径需要拥有admin权限    匹配路径的规则是从上往下
+                .antMatchers("/user/**").hasRole("user")    //和admin同理
+                .anyRequest().authenticated()                           //剩余其他格式的请求路径，只需要登录后就可以访问 authenticated不可以放在第一行
                 .and()
                 .formLogin()
-                .loginPage("/login.html")       //设置登录地址,如果不设置登录接口地址,默认也是使用该地址
+//                .loginPage("/login.html")       //设置登录地址,如果不设置登录接口地址,默认也是使用该地址
                 .loginProcessingUrl("/doLogin") //设置登录接口地址
                 .usernameParameter("name")      //登录时传递过来的参数名(用户名)
                 .passwordParameter("pwd")       //登录时传递过来的参数名(密码)
